@@ -243,7 +243,7 @@ p1 <- real_fed_mw %>%
     "text", 
     x = ym("1944m1"), 
     y = 7.5, 
-    label = "Using\nCPI-U",
+    label = "Published\nseries",
     color = "#c01f41",
     family = "Proxima Nova Rg",
   ) +
@@ -251,7 +251,7 @@ p1 <- real_fed_mw %>%
     "text", 
     x = ym("1962m1"), 
     y = 7, 
-    label = "Published\nseries",
+    label = "Using\nCPI-U",
     color = "#1273af",
     family = "Proxima Nova Rg",
   )
