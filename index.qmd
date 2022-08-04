@@ -85,13 +85,7 @@ bar_graph_data <- line_graph_data %>%
     date_value_string = paste0(date_value_string, " ($", annual_value_string, ")")
   ) %>% 
   arrange(date) %>% 
-  mutate(display_order = row_number())
-```
-
-#### Real value of the minimum wage (adjusted for inflation)
-
-```{r}
-### After the longest period in history without an increase, the federal minimum wage today is worth XX% less than 13 years ago--and 40% less than in 1968 
+  mutate(display_order = 4-row_number())
 
 my_theme <- function(){
   theme_ipsum() +
@@ -108,6 +102,11 @@ my_theme <- function(){
         legend.position = "none"
   )
 }
+```
+
+
+#### Real value of the minimum wage (adjusted for inflation)
+```{r fig.height=5}
 
 p1 <- line_graph_data %>% 
   ggplot() +
@@ -205,20 +204,70 @@ p1 <- line_graph_data %>%
     family = "Proxima Nova Rg",
     hjust = 0
   )
+```
 
-p1 
+```{r fig.height=3}
+### After the longest period in history without an increase, the federal minimum wage today is worth XX% less than 13 years ago--and 40% less than in 1968 
+p2 <- bar_graph_data %>% 
+  ggplot(aes(x = display_order, y = date_value, fill = factor(display_order))) +
+  geom_col(width = 0.5) + 
+  my_theme() +
+  theme(plot.margin = margin(t = 20, r = 5, l = 30, b = 5, unit = "pt")) +
+  coord_flip() +
+  scale_fill_manual(values=c("#c01f41", "#1273af", "#1273af")) +
+  scale_x_continuous (
+    breaks = NULL,
+    minor_breaks = NULL
+  ) +
+  scale_y_continuous(
+    expand = c(0,0),
+    breaks = NULL,
+    minor_breaks = NULL
+  ) +
+  geom_richtext(
+    aes(
+      x = display_order, 
+      y = date_value, 
+      label = date_value_string, 
+    ),
+    size = 5,
+    hjust = 1,
+    vjust = 0.57,
+    nudge_y = -0.1,
+    color = "#ffffff",
+    family = "Proxima Nova Rg",
+    label.color = NA
+  ) +
+  geom_text(
+    aes(
+      x = display_order, 
+      y = 0, 
+      label = date_year, 
+    ),
+    size = 5,
+    hjust = 0,
+    vjust = 0.57,
+    nudge_x = 0.45,
+    family = "Proxima Nova Rg",
+    fontface = "bold"
+  ) +
+  geom_text(
+    aes(
+      x = display_order, 
+      y = 0, 
+      label = date_description, 
+    ),
+    size = 5,
+    hjust = 0,
+    vjust = 0.57,
+    nudge_x = 0.45,
+    nudge_y = 0.85,
+    family = "Proxima Nova Rg",
+    color = "grey40"
+  )
+```
 
-
- 
-
-# p2 <- real_fed_mw %>% 
-#   filter(name %in% c("diff_real")) %>% 
-#   ggplot(aes(x = date, y = value, color = name)) +
-#   scale_y_continuous(labels = scales::label_percent()) +
-#   geom_line()
-# 
-# p1
-# 
-# plots <- align_plots(p1, p2, align="v")
-#ggdraw(plots[[1]])
+```{r fig.height=6, fig.width=8}
+plots <- plot_grid(p1, p2, nrow = 2, rel_heights = c(3,2))
+plots
 ```
