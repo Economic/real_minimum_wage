@@ -19,11 +19,13 @@ library(tsibble)
 library(zoo)
 library(hrbrthemes)
 library(cowplot)
+library(ggtext)
+library(here)
 
 # necessary for cowplot
 set_null_device("png")
 
-fed_mw <- read_csv("fed_min_wage.csv") %>% 
+fed_mw <- read_csv(here("data", "raw", "fed_min_wage.csv")) %>% 
   mutate(date = yearmonth(mdy(date))) %>% 
   add_row(date = yearmonth("2022m6"), fed_min_wage = 7.25) %>% 
   as_tsibble(index = date) %>% 
@@ -32,64 +34,9 @@ fed_mw <- read_csv("fed_min_wage.csv") %>%
   fill(fed_min_wage, .direction = "down") %>% 
   select(date, nominal_fed_mw = fed_min_wage) 
 
-cpi_u_rs <- read_csv("r-cpi-u-rs-allitems.csv") %>% 
-  rename_all(tolower) %>% 
-  select(-avg) %>% 
-  pivot_longer(-year, names_to = "month", values_to = "cpi_u_rs") %>% 
-  mutate(date = yearmonth(paste(year, month))) %>% 
-  select(date, cpi_u_rs)
-
-cpi_u_x1 <- read_csv("cpi_u_x1.csv") %>% 
-  rename_all(tolower) %>% 
-  select(-aavg) %>% 
-  pivot_longer(-year, names_to = "month", values_to = "cpi_u_x1") %>% 
-  mutate(date = yearmonth(paste(year, month))) %>% 
-  select(date, cpi_u_x1)
-
-chain_to_base <- function(data, series_to_chain, base_series, base_date) {
-  # root value of new base series
-  base_series_0 <- data %>% 
-    filter(date == yearmonth(base_date)) %>% 
-    pull({{base_series}})
-  
-  # root value of old series to be chained
-  series_to_chain_0 <- data %>% 
-    filter(date == yearmonth(base_date)) %>% 
-    pull({{series_to_chain}})
-  
-  # chain the series
-  data %>% 
-    mutate({{series_to_chain}} := {{series_to_chain}} / series_to_chain_0) %>% 
-    mutate({{series_to_chain}} := {{series_to_chain}} * base_series_0)
-}
-
-cpi <- read_csv("cpi_u_nsa.csv") %>% 
-  rename(cpi_u_nsa = value) %>% 
-  full_join(read_csv("cpi_u_sa.csv"), by = c("year", "period")) %>% 
-  rename(cpi_u_sa = value) %>% 
-  mutate(period = as.numeric(str_sub(period, 2, 3))) %>% 
-  filter(period >= 1 & period <= 12) %>% 
-  mutate(date = yearmonth(paste(year, period))) %>% 
-  full_join(cpi_u_x1, by = "date") %>% 
-  full_join(cpi_u_rs, by = "date") %>% 
-  select(date, matches("cpi")) %>% 
-  arrange(date) %>% 
-  chain_to_base(cpi_u_x1, cpi_u_rs, "1977m12") %>% 
-  mutate(cpi_u_early = if_else(date <= yearmonth("1967m1"), cpi_u_nsa, NA_real_)) %>% 
-  chain_to_base(cpi_u_early, cpi_u_x1, "1967m1") %>% 
-  mutate(cpi_u_late = if_else(date >= yearmonth("2021m12"), cpi_u_nsa, NA_real_)) %>% 
-  chain_to_base(cpi_u_late, cpi_u_rs, "2021m12") %>% 
-  mutate(cpi_u_rs_nsa_extended = case_when(
-    date <= yearmonth("1966m12") ~ cpi_u_early,
-    date >= yearmonth("1967m1") & date <= yearmonth("1977m12") ~ cpi_u_x1,
-    date >= yearmonth("1978m1") & date <= yearmonth("2021m12") ~ cpi_u_rs,
-    date >= yearmonth("2022m1") ~ cpi_u_late
-  )) %>% 
-  mutate(sa_factor = case_when(
-    date >= yearmonth("1947m1") ~ cpi_u_sa / cpi_u_nsa,
-    date <  yearmonth("1947m1") ~ 1
-  )) %>% 
-  mutate(cpi_u_rs_sa_extended = cpi_u_rs_nsa_extended * sa_factor)
+# created by create_cpi.R
+cpi <- read_csv(here("data", "processed", "cpi_u_rs_extended.csv")) %>% 
+  mutate(date = yearmonth(date)) 
 
 cpi_base <- cpi %>% 
   filter(date == yearmonth("June 2022")) %>% 
@@ -109,7 +56,7 @@ date_breaks <- tribble(
   ym("2022m6"), "July 2022", 1, "Today"
 )
 
-graph_data <- real_fed_mw %>% 
+line_graph_data <- real_fed_mw %>% 
   # easier to graph with Date data
   mutate(date = ym(date)) %>% 
   full_join(date_breaks, by = "date") %>% 
@@ -119,8 +66,26 @@ graph_data <- real_fed_mw %>%
     date_value = round(date_value, 2),
     date_value_string = if_else(!is.na(date_value),paste0("$", date_value), "")
   )
-  
 
+bar_graph_data <- line_graph_data %>% 
+  filter(!is.na(date_description)) %>% 
+  mutate(date_year = year(date)) %>% 
+  mutate(date_description = case_when(
+    date_year == 1968 ~ "Peak value of minimum wage",
+    date_year == 2009 ~ "Last minimum wage increase",
+    date_year == 2022 ~ "Today"
+  )) %>% 
+  mutate(date_value_string = case_when(
+    date_year == 1968 ~ paste0(date_value_string, "/hr"),
+    TRUE ~ date_value_string
+  )) %>% 
+  mutate(
+    annual_value_string = prettyNum(round(date_value*2080), big.mark=","),
+    date_value_string = paste0("**", date_value_string, "**"),
+    date_value_string = paste0(date_value_string, " ($", annual_value_string, ")")
+  ) %>% 
+  arrange(date) %>% 
+  mutate(display_order = row_number())
 ```
 
 #### Real value of the minimum wage (adjusted for inflation)
@@ -144,7 +109,7 @@ my_theme <- function(){
   )
 }
 
-p1 <- graph_data %>% 
+p1 <- line_graph_data %>% 
   ggplot() +
   geom_segment(
     aes(
@@ -159,14 +124,14 @@ p1 <- graph_data %>%
   ) +
   geom_line(
     aes(x = date, y = real_fed_mw), 
-    data = filter(graph_data, date <= ym("2009m7")),
+    data = filter(line_graph_data, date <= ym("2009m7")),
     size = 1.5,
     color = "#1273af",
     lineend = "round"
   ) +
   geom_line(
     aes(x = date, y = real_fed_mw), 
-    data = filter(graph_data, date >= ym("2009m7")),
+    data = filter(line_graph_data, date >= ym("2009m7")),
     size = 1.5,
     color = "#c01f41",
     lineend = "round"
@@ -242,6 +207,8 @@ p1 <- graph_data %>%
   )
 
 p1 
+
+
  
 
 # p2 <- real_fed_mw %>% 
