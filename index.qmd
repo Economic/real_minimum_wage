@@ -30,7 +30,7 @@ fed_mw <- read_csv("fed_min_wage.csv") %>%
   fill_gaps() %>% 
   arrange(date) %>% 
   fill(fed_min_wage, .direction = "down") %>% 
-  select(date, fed_min_wage)
+  select(date, nominal_fed_mw = fed_min_wage) 
 
 cpi_u_rs <- read_csv("r-cpi-u-rs-allitems.csv") %>% 
   rename_all(tolower) %>% 
@@ -91,43 +91,35 @@ cpi <- read_csv("cpi_u_nsa.csv") %>%
   )) %>% 
   mutate(cpi_u_rs_sa_extended = cpi_u_rs_nsa_extended * sa_factor)
 
-published <- read_csv("published.csv") %>% 
-  transmute(
-    date = yearmonth(ymd(Date)),
-    published_real_fed_mw = `Real federal minimum wage (June 2022 dollars)`,
-    published_nominal_fed_mw = `Statutory federal minimum wage`
-  ) %>% 
-  mutate(across(matches("published"), ~ str_remove(.x, "\\$"))) %>% 
-  mutate(across(matches("published"), as.numeric))
-
 cpi_base <- cpi %>% 
   filter(date == yearmonth("June 2022")) %>% 
   pull(cpi_u_rs_sa_extended)
 
-date_breaks <- tribble(
-  ~date, ~date_label, ~date_hjust, ~annotate_1, ~annotate_2,
-  ym("1938m10"), "Oct. 1938", 0, NA, NA,
-  ym("1968m2"), "Feb. 1968", 0.5, "$12.12", "Peak value", 
-  ym("2009m7"), "July 2009", 0.5, "$9.99", "Last increase",
-  ym("2022m5"), "July 2022", 1, "$7.25", "Today"
-)
-
 real_fed_mw <- fed_mw %>% 
   full_join(cpi, by = "date") %>% 
-  full_join(published, by = "date") %>% 
-  rename(nominal_fed_mw = fed_min_wage) %>% 
-  mutate(
-    real_fed_mw = nominal_fed_mw * cpi_base / cpi_u_rs_sa_extended,
-    diff_real = real_fed_mw / published_real_fed_mw - 1,
-    #across(matches("diff"), ~ scales::percent(.x, accuracy = 0.01)),
-    #across(matches("_fed_mw"), ~ scales::number(.x, accuracy = 0.01))
-  ) %>% 
-  select(date, matches("fed_mw"), matches("diff")) %>% 
+  mutate(real_fed_mw = nominal_fed_mw * cpi_base / cpi_u_rs_sa_extended) %>% 
   filter(date >= yearmonth("1938m10")) %>% 
-  pivot_longer(-date) %>% 
+  select(date, real_fed_mw, nominal_fed_mw) 
+
+date_breaks <- tribble(
+  ~date, ~date_label, ~date_hjust, ~date_description,
+  ym("1938m10"), "Oct. 1938", 0, NA,
+  ym("1968m2"), "Feb. 1968", 0.5, "Peak value", 
+  ym("2009m7"), "July 2009", 0.5, "Last increase",
+  ym("2022m6"), "July 2022", 1, "Today"
+)
+
+graph_data <- real_fed_mw %>% 
+  # easier to graph with Date data
   mutate(date = ym(date)) %>% 
   full_join(date_breaks, by = "date") %>% 
-  mutate(date_break = if_else(!is.na(date_label), date, NA_real_))
+  mutate(
+    date_break = if_else(!is.na(date_label), date, NA_real_),
+    date_value = if_else(!is.na(date_label), real_fed_mw, NA_real_),
+    date_value = round(date_value, 2),
+    date_value_string = if_else(!is.na(date_value),paste0("$", date_value), "")
+  )
+  
 
 ```
 
@@ -136,22 +128,24 @@ real_fed_mw <- fed_mw %>%
 ```{r}
 ### After the longest period in history without an increase, the federal minimum wage today is worth XX% less than 13 years ago--and 40% less than in 1968 
 
-my_theme <- theme_ipsum() +
+my_theme <- function(){
+  theme_ipsum() +
   theme(
         text = element_text(family = "Proxima Nova Rg"),
-        axis.title.y  = element_text(family = "Proxima Nova Rg"),
-        axis.title.x  = element_text(family = "Proxima Nova Rg"),
         plot.margin = margin(
           t = 5, 
           r = 5,
           b = 5, 
           l = 5, 
           unit = "pt"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "none"
   )
+}
 
-p1 <- real_fed_mw %>% 
-  filter(name %in% c("real_fed_mw", "published_real_fed_mw")) %>% 
-  ggplot(aes(x = date, y = value, color = name)) +
+p1 <- graph_data %>% 
+  ggplot() +
   geom_segment(
     aes(
       x = date_break, 
@@ -163,9 +157,21 @@ p1 <- real_fed_mw %>%
     linetype = "dashed",
     na.rm = TRUE
   ) +
-  geom_line(size = 1.5) +
-  my_theme +
-  scale_color_manual(values=c("#c01f41","#1273af")) +
+  geom_line(
+    aes(x = date, y = real_fed_mw), 
+    data = filter(graph_data, date <= ym("2009m7")),
+    size = 1.5,
+    color = "#1273af",
+    lineend = "round"
+  ) +
+  geom_line(
+    aes(x = date, y = real_fed_mw), 
+    data = filter(graph_data, date >= ym("2009m7")),
+    size = 1.5,
+    color = "#c01f41",
+    lineend = "round"
+  ) +
+  my_theme() +
   scale_x_date(
     breaks = NULL,
     minor_breaks = NULL
@@ -176,14 +182,9 @@ p1 <- real_fed_mw %>%
     labels = scales::label_dollar()
   ) +
   coord_cartesian(
-    xlim = c(ym("1938m1"), ym("2022m6")), 
+    xlim = c(ym("1938m1"), ym("2022m7")), 
     ylim = c(3, 13.75),
     expand = FALSE
-  ) +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    legend.position = "none"
   ) +
   geom_text(
     aes(
@@ -200,7 +201,7 @@ p1 <- real_fed_mw %>%
     aes(
       x = date, 
       y = 13.5, 
-      label = annotate_1, 
+      label = date_value_string, 
     ),
     hjust = 1,
     nudge_x = -300,
@@ -213,7 +214,7 @@ p1 <- real_fed_mw %>%
     aes(
       x = date, 
       y = 13, 
-      label = annotate_2
+      label = date_description
     ),
     hjust = 1,
     nudge_x = -300,
@@ -238,25 +239,8 @@ p1 <- real_fed_mw %>%
     color = "grey40",
     family = "Proxima Nova Rg",
     hjust = 0
-  ) +
-  annotate(
-    "text", 
-    x = ym("1944m1"), 
-    y = 7.5, 
-    label = "Published\nseries",
-    color = "#c01f41",
-    family = "Proxima Nova Rg",
-  ) +
-  annotate(
-    "text", 
-    x = ym("1962m1"), 
-    y = 7, 
-    label = "Using\nCPI-U",
-    color = "#1273af",
-    family = "Proxima Nova Rg",
   )
 
-  
 p1 
  
 
