@@ -1,5 +1,3 @@
 project:
   title: "real_min_wage"
-
-editor: visual
-
+  output-dir: _site
