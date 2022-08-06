@@ -9,10 +9,12 @@ format:
     fig-width: 8
     fig-height: 4
     fig-dpi: 300
+    page-layout: full
 ---
 
 ```{r}
 #| include: false
+
 library(tidyverse)
 library(lubridate)
 library(tsibble)
@@ -21,13 +23,28 @@ library(hrbrthemes)
 library(cowplot)
 library(ggtext)
 library(here)
-
 # necessary for cowplot
 set_null_device("png")
+```
 
-fed_mw <- read_csv(here("data", "raw", "fed_min_wage.csv")) %>% 
+```{r}
+# parameters
+# current fed mw
+current_fed_mw <- 7.25
+
+# inflate to current_cpi_date dollars
+current_cpi_date <- "2022m6" 
+
+# for figure we usually label current date as month after cpi date
+current_cpi_date_label <- "July 2022"
+```
+
+
+```{r}
+fed_mw <- here("data", "raw", "fed_min_wage.csv") %>% 
+  read_csv(show_col_types = FALSE) %>% 
   mutate(date = yearmonth(mdy(date))) %>% 
-  add_row(date = yearmonth("2022m6"), fed_min_wage = 7.25) %>% 
+  add_row(date = yearmonth(current_cpi_date), fed_min_wage = current_fed_mw) %>% 
   as_tsibble(index = date) %>% 
   fill_gaps() %>% 
   arrange(date) %>% 
@@ -35,11 +52,12 @@ fed_mw <- read_csv(here("data", "raw", "fed_min_wage.csv")) %>%
   select(date, nominal_fed_mw = fed_min_wage) 
 
 # created by create_cpi.R
-cpi <- read_csv(here("data", "processed", "cpi_u_rs_extended.csv")) %>% 
+cpi <- here("data", "processed", "cpi_u_rs_extended.csv") %>% 
+  read_csv(show_col_types = FALSE) %>% 
   mutate(date = yearmonth(date)) 
 
 cpi_base <- cpi %>% 
-  filter(date == yearmonth("June 2022")) %>% 
+  filter(date == yearmonth(current_cpi_date)) %>% 
   pull(cpi_u_rs_sa_extended)
 
 real_fed_mw <- fed_mw %>% 
@@ -53,7 +71,7 @@ date_breaks <- tribble(
   ym("1938m10"), "Oct. 1938", 0, NA,
   ym("1968m2"), "Feb. 1968", 0.5, "Peak value", 
   ym("2009m7"), "July 2009", 0.5, "Last increase",
-  ym("2022m6"), "July 2022", 1, "Today"
+  ym(current_cpi_date), current_cpi_date_label, 1, "Today"
 )
 
 line_graph_data <- real_fed_mw %>% 
@@ -73,7 +91,7 @@ bar_graph_data <- line_graph_data %>%
   mutate(date_description = case_when(
     date_year == 1968 ~ "Peak value of minimum wage",
     date_year == 2009 ~ "Last minimum wage increase",
-    date_year == 2022 ~ "Today"
+    date_year == year(yearmonth(current_cpi_date)) ~ "Today"
   )) %>% 
   mutate(date_value_string = case_when(
     date_year == 1968 ~ paste0(date_value_string, "/hr"),
@@ -87,6 +105,20 @@ bar_graph_data <- line_graph_data %>%
   arrange(date) %>% 
   mutate(display_order = 4-row_number())
 
+
+
+value_peak <- bar_graph_data %>% 
+  filter(year(date) == 1968) %>% 
+  pull(real_fed_mw)
+decline_since_peak <- abs(current_fed_mw / value_peak - 1) * 100
+decline_since_peak <- paste0(round(decline_since_peak), "%")
+
+value_last <- bar_graph_data %>% 
+  filter(year(date) == 2009) %>% 
+  pull(real_fed_mw)
+decline_since_last <- abs(current_fed_mw / value_last - 1) * 100
+decline_since_last <- paste0(round(decline_since_last), "%")
+
 my_theme <- function(){
   theme_ipsum() +
   theme(
@@ -95,7 +127,7 @@ my_theme <- function(){
           t = 5, 
           r = 5,
           b = 5, 
-          l = 5, 
+          l = 0, 
           unit = "pt"),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
@@ -105,9 +137,7 @@ my_theme <- function(){
 ```
 
 
-#### Real value of the minimum wage (adjusted for inflation)
-```{r fig.height=5}
-
+```{r}
 p1 <- line_graph_data %>% 
   ggplot() +
   geom_segment(
@@ -146,7 +176,7 @@ p1 <- line_graph_data %>%
     labels = scales::label_dollar()
   ) +
   coord_cartesian(
-    xlim = c(ym("1938m1"), ym("2022m7")), 
+    xlim = c(ym("1938m1"), my(current_cpi_date_label)), 
     ylim = c(3, 13.75),
     expand = FALSE
   ) +
@@ -206,13 +236,12 @@ p1 <- line_graph_data %>%
   )
 ```
 
-```{r fig.height=3}
-### After the longest period in history without an increase, the federal minimum wage today is worth XX% less than 13 years ago--and 40% less than in 1968 
+```{r}
 p2 <- bar_graph_data %>% 
   ggplot(aes(x = display_order, y = date_value, fill = factor(display_order))) +
   geom_col(width = 0.5) + 
   my_theme() +
-  theme(plot.margin = margin(t = 20, r = 5, l = 30, b = 5, unit = "pt")) +
+  theme(plot.margin = margin(t = 20, r = 5, l = 25, b = 5, unit = "pt")) +
   coord_flip() +
   scale_fill_manual(values=c("#c01f41", "#1273af", "#1273af")) +
   scale_x_continuous (
@@ -267,7 +296,12 @@ p2 <- bar_graph_data %>%
   )
 ```
 
+
+### After the longest period in history without an increase, the federal minimum wage today is worth `r decline_since_last` less than 13 years ago--and `r decline_since_peak` less than in 1968 
+#### Real value of the minimum wage (adjusted for inflation)
+
 ```{r fig.height=6, fig.width=8}
 plots <- plot_grid(p1, p2, nrow = 2, rel_heights = c(3,2))
 plots
 ```
+All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2022 chained to the CPI-U-RS (1978–2021) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). For the exact calculations, see <https://github.com/Economic/real_minimum_wage>
