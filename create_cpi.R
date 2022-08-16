@@ -1,4 +1,5 @@
 library(tidyverse)
+library(lubridate)
 library(blsR)
 library(here)
 
@@ -19,7 +20,7 @@ cpi_u_x1_raw <- read_csv(here("data", "raw", "cpi_u_x1.csv")) %>%
   rename_all(tolower) %>% 
   select(-aavg) %>% 
   pivot_longer(-year, names_to = "month", values_to = "cpi_u_x1") %>% 
-  mutate(date = yearmonth(paste(year, month))) %>% 
+  mutate(date = ym(paste(year, month))) %>% 
   select(date, cpi_u_x1)
 
 # CPI-U-RS from BLS
@@ -30,18 +31,18 @@ cpi_u_rs_raw <- read_csv(here("data", "raw", "r-cpi-u-rs-allitems.csv")) %>%
   rename_all(tolower) %>% 
   select(-avg) %>% 
   pivot_longer(-year, names_to = "month", values_to = "cpi_u_rs") %>% 
-  mutate(date = yearmonth(paste(year, month))) %>% 
+  mutate(date = ym(paste(year, month))) %>% 
   select(date, cpi_u_rs)
 
 chain_to_base <- function(data, series_to_chain, base_series, base_date) {
   # root value of new base series
   base_series_0 <- data %>% 
-    filter(date == yearmonth(base_date)) %>% 
+    filter(date == ym(base_date)) %>% 
     pull({{base_series}})
   
   # root value of old series to be chained
   series_to_chain_0 <- data %>% 
-    filter(date == yearmonth(base_date)) %>% 
+    filter(date == ym(base_date)) %>% 
     pull({{series_to_chain}})
   
   # chain the series
@@ -56,25 +57,25 @@ cpi_u_nsa_raw %>%
   rename(cpi_u_sa = value) %>% 
   mutate(period = as.numeric(str_sub(period, 2, 3))) %>% 
   filter(period >= 1 & period <= 12) %>% 
-  mutate(date = yearmonth(paste(year, period))) %>% 
-  full_join(cpi_u_x1, by = "date") %>% 
-  full_join(cpi_u_rs, by = "date") %>% 
+  mutate(date = ym(paste(year, period))) %>% 
+  full_join(cpi_u_x1_raw, by = "date") %>% 
+  full_join(cpi_u_rs_raw, by = "date") %>% 
   select(date, matches("cpi")) %>% 
   arrange(date) %>% 
   chain_to_base(cpi_u_x1, cpi_u_rs, "1977m12") %>% 
-  mutate(cpi_u_early = if_else(date <= yearmonth("1967m1"), cpi_u_nsa, NA_real_)) %>% 
+  mutate(cpi_u_early = if_else(date <= ym("1967m1"), cpi_u_nsa, NA_real_)) %>% 
   chain_to_base(cpi_u_early, cpi_u_x1, "1967m1") %>% 
-  mutate(cpi_u_late = if_else(date >= yearmonth("2021m12"), cpi_u_nsa, NA_real_)) %>% 
+  mutate(cpi_u_late = if_else(date >= ym("2021m12"), cpi_u_nsa, NA_real_)) %>% 
   chain_to_base(cpi_u_late, cpi_u_rs, "2021m12") %>% 
   mutate(cpi_u_rs_nsa_extended = case_when(
-    date <= yearmonth("1966m12") ~ cpi_u_early,
-    date >= yearmonth("1967m1") & date <= yearmonth("1977m12") ~ cpi_u_x1,
-    date >= yearmonth("1978m1") & date <= yearmonth("2021m12") ~ cpi_u_rs,
-    date >= yearmonth("2022m1") ~ cpi_u_late
+    date <= ym("1966m12") ~ cpi_u_early,
+    date >= ym("1967m1") & date <= ym("1977m12") ~ cpi_u_x1,
+    date >= ym("1978m1") & date <= ym("2021m12") ~ cpi_u_rs,
+    date >= ym("2022m1") ~ cpi_u_late
   )) %>% 
   mutate(sa_factor = case_when(
-    date >= yearmonth("1947m1") ~ cpi_u_sa / cpi_u_nsa,
-    date <  yearmonth("1947m1") ~ 1
+    date >= ym("1947m1") ~ cpi_u_sa / cpi_u_nsa,
+    date <  ym("1947m1") ~ 1
   )) %>% 
   mutate(cpi_u_rs_sa_extended = cpi_u_rs_nsa_extended * sa_factor) %>% 
   write_csv(here("data", "processed", "cpi_u_rs_extended.csv"))
