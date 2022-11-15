@@ -10,6 +10,7 @@ format:
     fig-height: 4
     fig-dpi: 300
     page-layout: full
+    linestretch: 1.0
 ---
 
 ```{r}
@@ -33,10 +34,10 @@ set_null_device("png")
 current_fed_mw <- 7.25
 
 # inflate to current_cpi_date dollars
-current_cpi_date <- "2022m7" 
+current_cpi_date <- "2022m10" 
 
 # for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "Aug. 2022"
+current_cpi_date_label <- "Nov. 2022"
 ```
 
 
@@ -298,10 +299,10 @@ p2 <- bar_graph_data %>%
 
 
 ### After the longest period in history without an increase, the federal minimum wage today is worth `r decline_since_last` less than 13 years ago--and `r decline_since_peak` less than in 1968 
-#### Real value of the minimum wage (adjusted for inflation)
+#### <b>Real value of the minimum wage (adjusted for inflation)</b>
 
-```{r fig.height=6, fig.width=8}
+```{r fig.height=7, fig.width=8}
 plots <- plot_grid(p1, p2, nrow = 2, rel_heights = c(3,2))
 plots
 ```
-All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2022 chained to the CPI-U-RS (1978–2021) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). For the exact calculations, see <https://github.com/Economic/real_minimum_wage>
+<small>All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2022 chained to the CPI-U-RS (1978–2021) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute: see <https://github.com/Economic/real_minimum_wage> </small>
