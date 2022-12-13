@@ -34,10 +34,10 @@ set_null_device("png")
 current_fed_mw <- 7.25
 
 # inflate to current_cpi_date dollars
-current_cpi_date <- "2022m10" 
+current_cpi_date <- "2022m11" 
 
 # for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "Nov. 2022"
+current_cpi_date_label <- "Dec. 2022"
 ```
 
 
@@ -155,14 +155,14 @@ p1 <- line_graph_data %>%
   geom_line(
     aes(x = date, y = real_fed_mw), 
     data = filter(line_graph_data, date <= ym("2009m7")),
-    size = 1.5,
+    linewidth = 1.5,
     color = "#1273af",
     lineend = "round"
   ) +
   geom_line(
     aes(x = date, y = real_fed_mw), 
     data = filter(line_graph_data, date >= ym("2009m7")),
-    size = 1.5,
+    linewidth = 1.5,
     color = "#c01f41",
     lineend = "round"
   ) +
