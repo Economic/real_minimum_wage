@@ -1,6 +1,7 @@
 library(tidyverse)
 library(lubridate)
 library(blsR)
+here::i_am("create_cpi.R")
 library(here)
 
 BLS_API_KEY <- Sys.getenv("BLS_API_KEY")
