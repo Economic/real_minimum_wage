@@ -34,10 +34,10 @@ set_null_device("png")
 current_fed_mw <- 7.25
 
 # inflate to current_cpi_date dollars
-current_cpi_date <- "2022m11" 
+current_cpi_date <- "2022m12" 
 
 # for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "Dec. 2022"
+current_cpi_date_label <- "Jan. 2023"
 ```
 
 
