@@ -7,11 +7,11 @@ library(here)
 BLS_API_KEY <- Sys.getenv("BLS_API_KEY")
 
 # CPI-U-NSA from BLS
-cpi_u_nsa_raw <- get_series_table("CUUR0000SA0", BLS_API_KEY, start_year = 1937, end_year = 2022) %>% 
+cpi_u_nsa_raw <- get_series_table("CUUR0000SA0", BLS_API_KEY, start_year = 1937, end_year = 2023) %>% 
   select(year, period, value) 
 
 # CPI-U-SA from BLS
-cpi_u_sa_raw <- get_series_table("CUSR0000SA0", BLS_API_KEY, start_year = 1947, end_year = 2022) %>% 
+cpi_u_sa_raw <- get_series_table("CUSR0000SA0", BLS_API_KEY, start_year = 1947, end_year = 2023) %>% 
   select(year, period, value)
 
 # CPI-U-X1 from Economic Report of the President, 2011, Table B-62
