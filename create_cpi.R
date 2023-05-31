@@ -66,13 +66,13 @@ cpi_u_nsa_raw %>%
   chain_to_base(cpi_u_x1, cpi_u_rs, "1977m12") %>% 
   mutate(cpi_u_early = if_else(date <= ym("1967m1"), cpi_u_nsa, NA_real_)) %>% 
   chain_to_base(cpi_u_early, cpi_u_x1, "1967m1") %>% 
-  mutate(cpi_u_late = if_else(date >= ym("2021m12"), cpi_u_nsa, NA_real_)) %>% 
-  chain_to_base(cpi_u_late, cpi_u_rs, "2021m12") %>% 
+  mutate(cpi_u_late = if_else(date >= ym("2022m12"), cpi_u_nsa, NA_real_)) %>% 
+  chain_to_base(cpi_u_late, cpi_u_rs, "2022m12") %>% 
   mutate(cpi_u_rs_nsa_extended = case_when(
     date <= ym("1966m12") ~ cpi_u_early,
     date >= ym("1967m1") & date <= ym("1977m12") ~ cpi_u_x1,
-    date >= ym("1978m1") & date <= ym("2021m12") ~ cpi_u_rs,
-    date >= ym("2022m1") ~ cpi_u_late
+    date >= ym("1978m1") & date <= ym("2022m12") ~ cpi_u_rs,
+    date >= ym("2023m1") ~ cpi_u_late
   )) %>% 
   mutate(sa_factor = case_when(
     date >= ym("1947m1") ~ cpi_u_sa / cpi_u_nsa,

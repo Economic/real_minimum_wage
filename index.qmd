@@ -34,10 +34,10 @@ set_null_device("png")
 current_fed_mw <- 7.25
 
 # inflate to current_cpi_date dollars
-current_cpi_date <- "2023m3" 
+current_cpi_date <- "2023m4" 
 
 # for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "April 2023"
+current_cpi_date_label <- "May 2023"
 ```
 
 
@@ -135,6 +135,15 @@ my_theme <- function(){
         legend.position = "none"
   )
 }
+
+real_fed_mw %>% 
+  mutate(
+    across(matches("mw"), ~ round(.x, 2)),
+    month = month(date),
+    year = year(date)
+  ) %>% 
+  select(date, year, month, nominal_fed_mw, real_fed_mw) %>% 
+  write_csv("real_federal_minimum_wage.csv")
 ```
 
 
@@ -305,4 +314,4 @@ p2 <- bar_graph_data %>%
 plots <- plot_grid(p1, p2, nrow = 2, rel_heights = c(3,2))
 plots
 ```
-<small>All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2022 chained to the CPI-U-RS (1978–2021) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute: see <https://github.com/Economic/real_minimum_wage> </small>
+<small>All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2023 chained to the CPI-U-RS (1978–2022) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute. Download the [data](real_federal_minimum_wage.csv) or view the [code](https://github.com/Economic/real_minimum_wage) that produces this figure.</small>
