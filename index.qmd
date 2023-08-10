@@ -34,10 +34,10 @@ set_null_device("png")
 current_fed_mw <- 7.25
 
 # inflate to current_cpi_date dollars
-current_cpi_date <- "2023m4" 
+current_cpi_date <- "2023m7" 
 
 # for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "May 2023"
+current_cpi_date_label <- "Aug. 2023"
 ```
 
 
@@ -83,7 +83,11 @@ line_graph_data <- real_fed_mw %>%
     date_break = if_else(!is.na(date_label), date, NA),
     date_value = if_else(!is.na(date_label), real_fed_mw, NA),
     date_value = round(date_value, 2),
-    date_value_string = if_else(!is.na(date_value),paste0("$", date_value), "")
+    date_value_string = if_else(
+      !is.na(date_value),
+      scales::label_dollar(accuracy = 0.01)(date_value),
+      ""
+    )
   )
 
 bar_graph_data <- line_graph_data %>% 
