@@ -1,3 +1,15 @@
 project:
-  title: "real_min_wage"
+  type: website
+  output-dir: docs
+  resources: real_federal_minimum_wage.csv
+
+website:
+  title: "OWE database"
   
+format:
+  html:
+    theme: cosmo
+    mainfont: proxima-nova, sans-serif
+    fig-height: 4
+    fig-dpi: 400
+    linestretch: 1.0

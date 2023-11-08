@@ -2,15 +2,7 @@
 title: ""
 execute:
   echo: false
-format:
-  html:
-    theme: cosmo
-    mainfont: proxima-nova, sans-serif
-    fig-width: 8
-    fig-height: 4
-    fig-dpi: 400
-    page-layout: full
-    linestretch: 1.0
+
 ---
 
 ```{r}
@@ -18,69 +10,91 @@ format:
 
 library(tidyverse)
 library(lubridate)
-library(tsibble)
-library(zoo)
 library(hrbrthemes)
 library(cowplot)
 library(ggtext)
-library(here)
+library(realtalk)
 # necessary for cowplot
 set_null_device("png")
 ```
 
+
 ```{r}
+# raw datasets
+nominal_min_wage_data <- us_minimum_wage_monthly %>% 
+  transmute(
+    month_date = ym(paste(year, month)), 
+    nominal_fed_mw = minimum_wage
+  )
+
+cpi_data <- c_cpi_u_extended_monthly_sa %>%
+  rename(cpi_sa = c_cpi_u_extended) %>% 
+  full_join(c_cpi_u_extended_monthly_nsa, by = join_by(year, month)) %>% 
+  rename(cpi_nsa = c_cpi_u_extended) %>% 
+  transmute(
+    month_date = ym(paste(year, month)),
+    cpi = if_else(year < 1947, cpi_nsa, cpi_sa)
+  )
+
 # parameters
-# current fed mw
-current_fed_mw <- 7.25
+# current_cpi_date
+current_cpi_date <- cpi_data %>% 
+  filter(month_date == max(month_date)) %>% 
+  pull(month_date)
 
-# inflate to current_cpi_date dollars
-current_cpi_date <- "2023m7" 
+# cpi base
+cpi_base <- cpi_data %>% 
+  filter(month_date == current_cpi_date) %>% 
+  pull(cpi)
 
-# for figure we usually label current date as month after cpi date
-current_cpi_date_label <- "Aug. 2023"
+# inflation-adjusted data
+real_min_wage_data <- nominal_min_wage_data %>% 
+  filter(month_date <= current_cpi_date) %>% 
+  inner_join(cpi_data, by = "month_date") %>% 
+  mutate(real_fed_mw = nominal_fed_mw * cpi_base / cpi) %>% 
+  select(month_date, real_fed_mw, nominal_fed_mw, cpi)
+
+real_min_wage_data %>% 
+  mutate(
+    across(matches("mw"), ~ round(.x, 2)),
+    month = month(month_date),
+    year = year(month_date),
+  ) %>% 
+  select(
+    year, 
+    month, 
+    nominal_federal_mw = nominal_fed_mw, 
+    real_federal_mw = real_fed_mw,
+    extended_chained_cpi = cpi,
+  ) %>% 
+  write_csv("real_federal_minimum_wage.csv")
 ```
 
 
 ```{r}
-fed_mw <- here("data", "raw", "fed_min_wage.csv") %>% 
-  read_csv(show_col_types = FALSE) %>% 
-  mutate(date = yearmonth(mdy(date))) %>% 
-  add_row(date = yearmonth(current_cpi_date), fed_min_wage = current_fed_mw) %>% 
-  as_tsibble(index = date) %>% 
-  fill_gaps() %>% 
-  arrange(date) %>% 
-  fill(fed_min_wage, .direction = "down") %>% 
-  select(date, nominal_fed_mw = fed_min_wage) 
+# create data for figures
 
-# created by create_cpi.R
-cpi <- here("data", "processed", "cpi_u_rs_extended.csv") %>% 
-  read_csv(show_col_types = FALSE) %>% 
-  mutate(date = yearmonth(date)) 
+# for figure we usually label current date as month after cpi date
+current_cpi_date_label <- format(current_cpi_date + months(1), "%b. %Y")
 
-cpi_base <- cpi %>% 
-  filter(date == yearmonth(current_cpi_date)) %>% 
-  pull(cpi_u_rs_sa_extended)
+# current fed mw
+current_fed_mw <- real_min_wage_data %>% 
+  filter(month_date == current_cpi_date) %>% 
+  pull(nominal_fed_mw)
 
-real_fed_mw <- fed_mw %>% 
-  full_join(cpi, by = "date") %>% 
-  mutate(real_fed_mw = nominal_fed_mw * cpi_base / cpi_u_rs_sa_extended) %>% 
-  filter(date >= yearmonth("1938m10")) %>% 
-  select(date, real_fed_mw, nominal_fed_mw) 
-
+# date break data
 date_breaks <- tribble(
-  ~date, ~date_label, ~date_hjust, ~date_description,
+  ~month_date, ~date_label, ~date_hjust, ~date_description,
   ym("1938m10"), "Oct. 1938", 0, NA,
   ym("1968m2"), "Feb. 1968", 0.5, "Peak value", 
   ym("2009m7"), "July 2009", 0.5, "Last increase",
-  ym(current_cpi_date), current_cpi_date_label, 1, "Today"
+  current_cpi_date, current_cpi_date_label, 1, "Today"
 )
 
-line_graph_data <- real_fed_mw %>% 
-  # easier to graph with Date data
-  mutate(date = ym(date)) %>% 
-  full_join(date_breaks, by = "date") %>% 
+line_graph_data <- real_min_wage_data %>% 
+  full_join(date_breaks, by = "month_date") %>% 
   mutate(
-    date_break = if_else(!is.na(date_label), date, NA),
+    date_break = if_else(!is.na(date_label), month_date, NA),
     date_value = if_else(!is.na(date_label), real_fed_mw, NA),
     date_value = round(date_value, 2),
     date_value_string = if_else(
@@ -91,12 +105,13 @@ line_graph_data <- real_fed_mw %>%
   )
 
 bar_graph_data <- line_graph_data %>% 
+  # grab only relevant dates for bar graph
   filter(!is.na(date_description)) %>% 
-  mutate(date_year = year(date)) %>% 
+  mutate(date_year = year(month_date)) %>% 
   mutate(date_description = case_when(
     date_year == 1968 ~ "Peak value of minimum wage",
     date_year == 2009 ~ "Last minimum wage increase",
-    date_year == year(yearmonth(current_cpi_date)) ~ "Today"
+    date_year == year(current_cpi_date) ~ "Today"
   )) %>% 
   mutate(date_value_string = case_when(
     date_year == 1968 ~ paste0(date_value_string, "/hr"),
@@ -107,32 +122,32 @@ bar_graph_data <- line_graph_data %>%
     date_value_string = paste0("**", date_value_string, "**"),
     date_value_string = paste0(date_value_string, " ($", annual_value_string, ")")
   ) %>% 
-  arrange(date) %>% 
+  arrange(month_date) %>% 
   mutate(display_order = 4-row_number())
 
-
-
 value_peak <- bar_graph_data %>% 
-  filter(year(date) == 1968) %>% 
+  filter(year(month_date) == 1968) %>% 
   pull(real_fed_mw)
 decline_since_peak <- abs(current_fed_mw / value_peak - 1) * 100
 decline_since_peak <- paste0(round(decline_since_peak), "%")
 
 value_last <- bar_graph_data %>% 
-  filter(year(date) == 2009) %>% 
+  filter(year(month_date) == 2009) %>% 
   pull(real_fed_mw)
 decline_since_last <- abs(current_fed_mw / value_last - 1) * 100
 decline_since_last <- paste0(round(decline_since_last), "%")
+```
 
+
+```{r}
 my_theme <- function(){
-  theme_ipsum() +
+  theme_minimal() +
   theme(
-        text = element_text(family = "Proxima Nova Rg"),
         plot.margin = margin(
           t = 5, 
           r = 5,
           b = 5, 
-          l = 0, 
+          l = 5, 
           unit = "pt"),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
@@ -140,18 +155,6 @@ my_theme <- function(){
   )
 }
 
-real_fed_mw %>% 
-  mutate(
-    across(matches("mw"), ~ round(.x, 2)),
-    month = month(date),
-    year = year(date)
-  ) %>% 
-  select(date, year, month, nominal_fed_mw, real_fed_mw) %>% 
-  write_csv("real_federal_minimum_wage.csv")
-```
-
-
-```{r}
 p1 <- line_graph_data %>% 
   ggplot() +
   geom_segment(
@@ -166,15 +169,15 @@ p1 <- line_graph_data %>%
     na.rm = TRUE
   ) +
   geom_line(
-    aes(x = date, y = real_fed_mw), 
-    data = filter(line_graph_data, date <= ym("2009m7")),
+    aes(x = month_date, y = real_fed_mw), 
+    data = filter(line_graph_data, month_date <= ym("2009m7")),
     linewidth = 1.5,
     color = "#1273af",
     lineend = "round"
   ) +
   geom_line(
-    aes(x = date, y = real_fed_mw), 
-    data = filter(line_graph_data, date >= ym("2009m7")),
+    aes(x = month_date, y = real_fed_mw), 
+    data = filter(line_graph_data, month_date >= ym("2009m7")),
     linewidth = 1.5,
     color = "#c01f41",
     lineend = "round"
@@ -196,18 +199,17 @@ p1 <- line_graph_data %>%
   ) +
   geom_text(
     aes(
-      x = date, 
+      x = month_date, 
       y = 3.5, 
       label = date_label, 
       hjust = date_hjust
     ),
     na.rm = TRUE,
     color = "grey40",
-    family = "Proxima Nova Rg"
   ) +
   geom_text(
     aes(
-      x = date, 
+      x = month_date, 
       y = 13.5, 
       label = date_value_string, 
     ),
@@ -215,12 +217,11 @@ p1 <- line_graph_data %>%
     nudge_x = -300,
     na.rm = TRUE,
     color = "#2b2b2b",
-    family = "Proxima Nova Rg",
     fontface = "bold"
   ) +
   geom_text(
     aes(
-      x = date, 
+      x = month_date, 
       y = 13, 
       label = date_description
     ),
@@ -228,7 +229,6 @@ p1 <- line_graph_data %>%
     nudge_x = -300,
     na.rm = TRUE,
     color = "grey40",
-    family = "Proxima Nova Rg"
   ) +
   annotate(
     "text", 
@@ -236,7 +236,6 @@ p1 <- line_graph_data %>%
     y = 13.5, 
     label = "Minimum wage",
     color = "grey40",
-    family = "Proxima Nova Rg",
     hjust = 0
   ) + 
   annotate(
@@ -245,7 +244,6 @@ p1 <- line_graph_data %>%
     y = 13, 
     label = "established",
     color = "grey40",
-    family = "Proxima Nova Rg",
     hjust = 0
   )
 ```
@@ -278,7 +276,6 @@ p2 <- bar_graph_data %>%
     vjust = 0.57,
     nudge_y = -0.1,
     color = "#ffffff",
-    family = "Proxima Nova Rg",
     label.color = NA
   ) +
   geom_text(
@@ -291,7 +288,6 @@ p2 <- bar_graph_data %>%
     hjust = 0,
     vjust = 0.57,
     nudge_x = 0.45,
-    family = "Proxima Nova Rg",
     fontface = "bold"
   ) +
   geom_text(
@@ -304,8 +300,7 @@ p2 <- bar_graph_data %>%
     hjust = 0,
     vjust = 0.57,
     nudge_x = 0.45,
-    nudge_y = 0.85,
-    family = "Proxima Nova Rg",
+    nudge_y = 0.90,
     color = "grey40"
   )
 ```
@@ -314,8 +309,8 @@ p2 <- bar_graph_data %>%
 ### After the longest period in history without an increase, the federal minimum wage today is worth `r decline_since_last` less than 13 years ago--and `r decline_since_peak` less than in 1968 
 #### <b>Real value of the minimum wage (adjusted for inflation)</b>
 
-```{r fig.height=7, fig.width=8, warning=FALSE}
+```{r fig.height=7, warning=FALSE}
 plots <- plot_grid(p1, p2, nrow = 2, rel_heights = c(3,2))
 plots
 ```
-<small>All values in `r format(yearmonth(current_cpi_date), format = "%B %Y")` dollars, adjusted using the CPI-U in 2023 chained to the CPI-U-RS (1978–2022) and CPI-U-X1 (1967–1977) and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute. Download the [data](real_federal_minimum_wage.csv) or view the [code](https://github.com/Economic/real_minimum_wage) that produces this figure.</small>
+<small>All values in `r format(current_cpi_date, format = "%B %Y")` dollars, adjusted using the chained CPI-U since 2000, extended retroactively to the CPI-U-RS (1978-1999), CPI-U-X1 (1967–1977), and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute. Download the [data](real_federal_minimum_wage.csv) or view the [code](https://github.com/Economic/real_minimum_wage) that produces this figure.</small>
