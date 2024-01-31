@@ -108,6 +108,7 @@ bar_graph_data <- line_graph_data %>%
   # grab only relevant dates for bar graph
   filter(!is.na(date_description)) %>% 
   mutate(date_year = year(month_date)) %>% 
+  mutate(date_year = if_else(date_year == 2023, 2024, date_year)) %>% 
   mutate(date_description = case_when(
     date_year == 1968 ~ "Peak value of minimum wage",
     date_year == 2009 ~ "Last minimum wage increase",
