@@ -4,7 +4,7 @@ project:
   resources: real_federal_minimum_wage.csv
 
 website:
-  title: "OWE database"
+  title: "Real minimum wage"
   
 format:
   html:
