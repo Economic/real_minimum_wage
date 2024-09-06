@@ -2,12 +2,12 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.544">
+<meta name="generator" content="quarto-1.5.57">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Real minimum wage -</title>
+<title>Real minimum wage</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -83,8 +83,8 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<section id="after-the-longest-period-in-history-without-an-increase-the-federal-minimum-wage-today-is-worth-29-less-than-13-years-agoand-40-less-than-in-1968" class="level3">
-<h3 class="anchored" data-anchor-id="after-the-longest-period-in-history-without-an-increase-the-federal-minimum-wage-today-is-worth-29-less-than-13-years-agoand-40-less-than-in-1968">After the longest period in history without an increase, the federal minimum wage today is worth 29% less than 13 years ago–and 40% less than in 1968</h3>
+<section id="after-the-longest-period-in-history-without-an-increase-the-federal-minimum-wage-today-is-worth-29-less-than-13-years-agoand-39-less-than-in-1968" class="level3">
+<h3 class="anchored" data-anchor-id="after-the-longest-period-in-history-without-an-increase-the-federal-minimum-wage-today-is-worth-29-less-than-13-years-agoand-39-less-than-in-1968">After the longest period in history without an increase, the federal minimum wage today is worth 29% less than 13 years ago–and 39% less than in 1968</h3>
 <section id="real-value-of-the-minimum-wage-adjusted-for-inflation" class="level4">
 <h4 class="anchored" data-anchor-id="real-value-of-the-minimum-wage-adjusted-for-inflation"><b>Real value of the minimum wage (adjusted for inflation)</b></h4>
 <div class="cell">
@@ -96,7 +96,7 @@ ul.task-list li input[type="checkbox"] {
 </div>
 </div>
 </div>
-<p><small>All values in May 2024 dollars, adjusted using the chained CPI-U since 2000, extended retroactively to the CPI-U-RS (1978-1999), CPI-U-X1 (1967–1977), and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute. Download the <a href="real_federal_minimum_wage.csv">data</a> or view the <a href="https://github.com/Economic/real_minimum_wage">code</a> that produces this figure.</small></p>
+<p><small>All values in July 2024 dollars, adjusted using the chained CPI-U since 2000, extended retroactively to the CPI-U-RS (1978-1999), CPI-U-X1 (1967–1977), and CPI-U (1966 and before). Calculations by Ben Zipperer, Economic Policy Institute. Download the <a href="real_federal_minimum_wage.csv">data</a> or view the <a href="https://github.com/Economic/real_minimum_wage">code</a> that produces this figure.</small></p>
 
 
 </section>
@@ -138,18 +138,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }
     return false;
   }
-  const clipboard = new window.ClipboardJS('.code-copy-button', {
-    text: function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
-      for (const childEl of codeEl.children) {
-        if (isCodeAnnotation(childEl)) {
-          childEl.remove();
-        }
-      }
-      return codeEl.innerText;
-    }
-  });
-  clipboard.on('success', function(e) {
+  const onCopySuccess = function(e) {
     // button target
     const button = e.trigger;
     // don't keep focus
@@ -181,7 +170,47 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     }, 1000);
     // clear code selection
     e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
   });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
   function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
     const config = {
       allowHTML: true,
@@ -216,7 +245,11 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       try { href = new URL(href).hash; } catch {}
       const id = href.replace(/^#\/?/, "");
       const note = window.document.getElementById(id);
-      return note.innerHTML;
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
     });
   }
   const xrefs = window.document.querySelectorAll('a.quarto-xref');

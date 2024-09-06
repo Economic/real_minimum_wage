@@ -113,7 +113,6 @@ bar_graph_data <- line_graph_data %>%
     date_year == 2009 ~ "Last minimum wage increase",
     date_year == year(current_cpi_date) ~ "Today"
   )) %>% 
-  mutate(date_year = if_else(date_year == 2023, 2024, date_year)) %>% 
   mutate(date_value_string = case_when(
     date_year == 1968 ~ paste0(date_value_string, "/hr"),
     TRUE ~ date_value_string
