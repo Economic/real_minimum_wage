@@ -306,7 +306,7 @@ p2 <- bar_graph_data %>%
 ```
 
 
-### After the longest period in history without an increase, the federal minimum wage today is worth `r decline_since_last` less than 13 years ago--and `r decline_since_peak` less than in 1968 
+### After the longest period in history without an increase, the federal minimum wage today is worth `r decline_since_last` less than 15 years ago--and `r decline_since_peak` less than in 1968 
 #### <b>Real value of the minimum wage (adjusted for inflation)</b>
 
 ```{r fig.height=7, warning=FALSE}
